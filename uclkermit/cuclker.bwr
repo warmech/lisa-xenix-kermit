@@ -1,0 +1,51 @@
+Date: Fri, 18 Oct 91 11:48:11 edt
+From: John Ball <jball@sleepy.haystack.edu>
+To: kermit@watsun.cc.columbia.edu
+Subject: Problem with UCL Kermit 
+Cc: cjk%cs.ucl.ac.uk.bitnet@cunyvm.cuny.edu,
+        info-kermit%cs.ucl.ac.uk.bitnet@cunyvm.cuny.edu,
+        kad@fourier.haystack.edu, mike@wells.haystack.edu,
+        syskermit%vax1.lancs.ac.uk.bitnet@cunyvm.cuny.edu
+
+     This is a note about a problem in and a fix for UCL
+(University College London) Kermit in files cuclker.c and cuclx5.c
+(for Unix System 5) in the kermit/d subdirectory on
+watsun.cc.columbia.edu.  UCL Kermit is a "trim" version of Kermit
+for Unix and was officially released by Columbia some years ago. 
+We at Haystack have just begun using it on a 386-based PC with Esix
+Unix System V.3.2 but only after making the fix described below.
+
+     The problem involves signed char variables.  If your C
+compiler takes chars to be signed, then you'll have the following
+problem (and perhaps others that we haven't found) when
+transferring binary files.  The symptom (well, one of the symptoms)
+is that an extra block of some 50 to 80 bytes gets inserted into
+sent binary files whenever the following block begins with FE
+(hex).  The extra block is approximately a repeat of the block
+preceding the one beginning FE.  The problem arises in bufill() and
+encode(), which use oldt = -2 (an impossible last char, according
+to the associated comment) to tell encode() that the repeat
+mechanism should start afresh.  Now -2 as a int is, indeed, an
+impossible char, but FE (hex) as a signed char is just -2, and
+that's what it becomes after being processed through ascedit(),
+which is type char.
+
+     Probably the best fix is to persuade your C compiler to treat
+all chars as unsigned.  Some C compilers can do this if asked, and
+some C compilers do it without being asked.  Presumably this is why
+the folks at UCL didn't have this problem.  An alternative fix is
+to change oldt = -2 (in bufill() and in encode()) to a number, say
+-2000, that is an impossible char regardless of sign.  This leaves
+the possibility of some other yet-undiscovered still-more-subtle
+problem.  A third alternative is to edit the files to change some
+or all of the char functions to unsigned char.  We think that int
+would also work.  You'll need to change each function in at least
+two places, one in each of the two *.c files.
+
+     We suggest that a copy of this note should accompany the UCL
+Kermit distribution perhaps in cuclker.hlp.
+
+John Ball  (jball@wells.haystack.edu)             1991 October 18
+M.I.T. Haystack Observatory
+Off Route 40 
+Westford, Massachusetts  01886  U.S.A. 

@@ -1,0 +1,8 @@
+The names of the UCL Kermit files have been changed as follows, to prevent
+confusion with the UCSD Pascal Kermit files:
+
+Original Name      Kermit Distribution Name
+uclkmd.c           cuclxb.c                     Berkeley Unix support
+uclkv5.c           cuclx5.c                     ATT System V support
+uclkmit.c          cuclker.c                    Main Kermit program
+uclkmit.doc        cuclker.doc                  Manual

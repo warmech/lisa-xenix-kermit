@@ -1,0 +1,1122 @@
+INDRA Note No.1792                                UCL  INDRA
+                                                   INTERNAL
+27th Aug 1985                                    Working Paper
+
+
+
+
+
+
+
+
+
+
+
+                      U C L   K E R M I T
+
+
+
+
+
+
+
+
+                       C. J. Kennington
+
+
+
+
+
+
+
+
+
+
+
+
+        ABSTRACT:
+             A description of UCL's portable
+             implementation of a mainframe Kermit
+             file-transfer system, with notes on how
+             to obtain and use copies of Kermit.
+
+
+
+
+
+
+                Department of Computer Science
+
+                   University College London
+
+
+
+
+
+
+
+
+
+[UCL Kermit]                - 1 -           [IN1792, Aug 1985]
+
+
+                           CONTENTS
+                                                  page
+
+
+
+          0.  Introduction.                        1
+
+          1.  UCL Kermit.                          1
+
+          2.  Invoking UCL Kermit.                 2
+
+          3.  Command-Line Flags.                  3
+
+          4.  Debug-File Handling                  4
+
+          5.  CR/LF Expansion.                     5
+
+          6.  Automatic (Server) Mode.             5
+
+          7.  Cancelling Kermit.                   6
+
+          8.  Source Text and Dependent Routines.  6
+
+          9.  Operating System Assumptions.        7
+
+
+
+            APPENDIX I - The Kermit System.        8
+
+          1.  Kermit.                              8
+
+          2.  UCL Kermit.                          9
+
+          3.  Kermit Performance.                 10
+
+
+
+            APPENDIX II - Kermit Availability.    12
+
+          1.  University of Columbia.             12
+
+          2.  UK Distribution.                    12
+
+          3.  Other Sources.                      13
+
+          4.  Information Distribution.           13
+
+
+
+            APPENDIX III - A Kermit Session.      15
+
+
+
+
+
+
+
+
+[UCL Kermit]                - 1 -           [IN1792, Aug 1985]
+
+
+0.  Introduction.
+
+        This document describes the version of Kermit
+  produced at University College London during the first half
+  of 1985.  To avoid duplication, it is intended to serve
+  both as a chapter of the U. of Columbia Kermit Manual and
+  as a UCL internal document.  General information about
+  Kermit is given in Appendix I, which should be read before
+  the rest of the document by those not familiar with Kermit
+  file-transfer and the Kermit world.  Information about
+  obtaining and running Kermit programs on various micros
+  etc. is given in Appendix II.  A simple guide to running a
+  Kermit session comprises Appendix III.
+
+
+1.  UCL Kermit.
+
+       UCL Kermit is a fairly simple mainframe-only Kermit,
+  written at UCL at about the same time that 1985 C-Kermit
+  was being written at Columbia.  It contains a certain
+  amount of the code from 1983 Unix-Kermit (as printed in the
+  1984 Kermit Protocol Manual), and its user-interface
+  derives also from that Kermit.  It is being made available
+  generally because it is believed to have something to offer
+  in the fields of portability, diagnostic capacity, and
+  possibly efficiency.  These matters are discussed further
+  in later parts of this document.
+
+       UCL Kermit Capabilities At A Glance:
+
+    Local operation:                 No
+    Remote operation:                Yes
+    User Interface:                  Command-line
+    Transfers text files:            Yes (CR/LF checks)
+    Transfers binary files:          Yes (image/prefixed)
+    Wildcard send:                   Yes (on command-line)
+    ESC interruption:                Yes
+    Filename collision avoidance:    No
+    Can time out:                    Yes
+    8th-bit prefixing:               Yes
+    Repeat count prefixing:          Yes
+    Alternate block checks:          No
+    Terminal emulation:              No
+    Communication settings:          Depends on system
+    Transmit BREAK:                  No
+    IBM communication:               No
+    Diagnostic logging:              Yes
+    Session logging:                 No
+    Raw upload/download:             No
+    Act as server:                   Yes
+    Talk to server:                  No
+    Advanced commands for servers:   No
+    Local file management:           No
+    Handle file attributes:          No
+    Command/init files:              No
+    Printer control:                 No
+
+
+[UCL Kermit]                - 2 -           [IN1792, Aug 1985]
+
+
+       UCL Kermit handles only the file-transfer aspects of
+  Kermit (including a modest Server capability).  It has no
+  facilities for routing through the mainframe to work with
+  another (remote) Kermit, nor does it support the Kermit
+  "remote session" facilities.  It is designed for an
+  environment in which effective terminal access to
+  mainframes is already available over general-purpose
+  networks.
+
+       Further development of UCL Kermit is unlikely.  The
+  status of the code is "Copyright UCL and U. of Columbia",
+  but free permission is given to copy and use it for all
+  non-commercial purposes.  Commercial use is governed by the
+  U. of Columbia regulations on the subject.
+
+       UCL Kermit has been developed on PDP 11/44s running
+  Unix(tm) (Berkeley 2.8), but has been ported to a number of
+  other systems.  When discussing mainframe-system-oriented
+  matters, this document uses unix terminology, but the
+  principles remain valid even if the program has been ported
+  to a system with different characteristics
+
+
+2.  Invoking UCL Kermit.
+
+       UCL Kermit runs as a normal unix program.  It is
+  started by the user issuing a normal command-line to the
+  unix shell, and terminates when its work is finished,
+  leaving the user again in communication with the shell.
+  All its command-information comes from either the
+  parameters on the command-line invoking it, or by way of
+  commands from the local Kermit.  It has no interactive
+  command mode, neither does it make use of any init-file to
+  alter its various defaults.  It is fairly verbose, both
+  when starting up and when logging in its debug file.  Where
+  appropriate, it identifies its output with the prefix
+  "KmUCL".
+
+       Kermit is invoked with a command-line of the following
+  format:-
+
+          kermit    [-flags] [-Ddebugfile] [filename(s)]
+
+  where the flags and debugfile are as described in the next
+  sections and the filenames are normal references to unix
+  files.  Since the command-line is processed by the unix
+  shell, wildcards may be used in filenames as in any other
+  unix command.  The filenames are included only in the case
+  where a "s" parameter (send files) is included in the
+  flags.  The "-" preceding the flags is optional, but that
+  before the "D" is mandatory.
+
+
+
+
+
+
+
+[UCL Kermit]                - 3 -           [IN1792, Aug 1985]
+
+
+3.  Command-Line Flags.
+
+       The following flags are valid.  Each consists of a
+  single lower-case character only.  Where they define
+  mutually-exclusive actions, to include more than one from
+  the mutually-exclusive group constitutes an error, which is
+  detected.  Invalid characters in the flags also consititues
+  an error.  On detecting any such error, UCL Kermit displays
+  a short summary of the valid flag-codes and terminates.
+
+
+              s  -  send-flag
+              r  -  receive-flag
+              a  -  automatic-flag
+
+  These form a mutually exclusive group.  UCL Kermit, after
+  outputting banners etc, switches to send, receive or
+  automatic (server) mode according to which one is entered.
+  If none is included in the flags, automatic is assumed.
+
+       Iff a "s"-flag has been included, then one of more
+  filenames must be appended.  These specify the files to be
+  sent.  Wildcards (as accepted by unix) may be included.
+
+
+              h  -  help-flag  (alternative: ?)
+
+  This flag overrides all others and causes 2 screensfull
+  (about 45 lines) of help-information to be displayed.
+
+
+              f  -  filename-conversion flag
+
+  If this flag is present, then the filenames sent will be
+  allowed to remain in upper or lower (or mixed) case, as
+  found on the disks.  By default, UCL Kermit converts all
+  unix filenames (typically lower-case) to upper-case before
+  sending them as the name of the file to be transferred.
+
+
+              7  -  7-bit flag
+              8  -  8-bit-prefixing flag
+              i  -  binary-image flag
+
+  These form a mutually exclusive group.  "7" specifies that
+  the files are to be treated as files of ASCII character
+  data; characters received are masked to 7 bits (discarding
+  any parity-bits) before storing, and characters sent have
+  the top bit zero; CR/LF expansion is activated (see section
+  5).  "8" specifies that UCL Kermit should attempt to
+  negotiate 8th-bit prefixing with the local (micro) Kermit;
+  this is the default if no such flag is included.  If the
+  local Kermit refuses to use 8th-bit prefixing, then the
+  transfer reverts to 7-bit mode as described above.
+  "i" (image-mode) specifies that the file is to be
+  sent/received as 8-bit characters.  CR/LF expansion is
+  inhibited in 8th-bit prefixing and image-modes.
+
+[UCL Kermit]                - 4 -           [IN1792, Aug 1985]
+
+
+       Repeat-count-prefixing (data-compression) is always
+  "on".  It will be used if the local Kermit agrees.  Use of
+  this facility makes no difference to the accuracy of the
+  transfer, but can materially affect the time needed.
+
+
+4.  Debug-File Handling and Information Recorded.
+
+       The second (optional) parameter of the command-line
+  consists of a minus sign, one or more capital D's and the
+  name of a file into which debugging information is to be
+  written.  If no debug is required, then the whole parameter
+  should be omitted.  There may be up to three capital D's,
+  controlling the debugging level to be used; they are
+  followed without a space by the name of the file into which
+  debug is to be written.  (This precludes the use of a file
+  whose name starts with a capital D.)  A null filename is an
+  error and results in debug being switched off.
+
+       UCL Kermit always checks rigorously that incoming
+  packets conform to the Kermit protocol as laid down.
+  Protocol errors are always reported (in ERROR-packets) to
+  the local Kermit; if debug is switched on details will also
+  be logged in the debug file.
+
+       The debug file is opened in "append" mode, so that one
+  file may hold the debug output from several runs.  At the
+  beginning and end of each run a banner is put into the file
+  so that the start of each run may be easily located.  No
+  check is performed to prevent the debug-file from also
+  being specified as a file to be sent.
+
+       Level-1 debug (a single D) consists of a record of the
+  way in which the program is used, plus a note of the files
+  sent or received, packet by packet.  The details of the I-
+  packet negotiation are logged; error-packets sent by or to
+  the local Kermit are also logged, as are the details of any
+  transmission errors which may be detected.  Level 1 debug
+  is intended to serve as a record of activity and to
+  identify errors at the protocol level, especially when a
+  revised or new local Kermit is in use.
+
+       Level-2 debug (2 D's) prints in addition the details
+  of each packet as it is sent or received.  It is intended
+  for use where there is some problem to do with the
+  formatting of the packets exchanged or the data in them.
+
+       Level-3 debug (3 D's) adds a subroutine-trace through
+  the program, plus a record of each character sent or
+  received on the communications line (in hex).  The main use
+  of this is where there is a communications problem such
+  that no packets are ever received successfully, or some
+  packets are entirely lost.
+
+
+
+
+
+[UCL Kermit]                - 5 -           [IN1792, Aug 1985]
+
+
+5.  CR/LF Expansion.
+
+       In the case of 7-bit file transfers only, care is
+  taken to ensure that each line of text in the file is sent
+  terminated by a single CR/LF pair, and each line of text
+  received is terminated by a single LF before being stored.
+  If a file is found to contain strings of repeated or
+  intermixed CRs, LFs and CR/LF pairs, these are processed so
+  that each CR/LF or LF/CR, and each CR or LF which does not
+  pair with a LF or CR respectively, converts to a CR/LF pair
+  for transmission or a single LF for storage.  This is
+  believed to be what is needed for all unix-based systems.
+  The routine which carries out this transformation is
+  included in the "machine-dependent" section (see below) so
+  that it may be easily modified if necessary when porting
+  the program to a new mainframe.
+
+       CR/LF expansion is essential if files are to be
+  transferred correctly between unix (which uses LF as a
+  line-terminator) and systems such as CP/M which use CR
+  instead.  For this reason care should be taken that, if a
+  text-file is being transferred, 8th-bit-prefixing is not
+  accidentally switched on.  See Appendix III.
+
+
+6.  Automatic (Server) Mode.
+
+       When in automatic mode, UCL Kermit behaves as a rather
+  simple Kermit server.  It is not really a server, since it
+  is running as the creature of the user-shell which invoked
+  it.  It will accept the following commands from the local
+  Kermit:-
+
+       SEND - allow local Kermit to send files (as many as
+  the local Kermit may wish);
+
+       GET - send one or more files to the local Kermit; the
+  names should be entered into the get-request assuming the
+  path which was in existence when UCL Kermit was invoked; no
+  wildcards are allowed.
+
+       BYE and LOGOUT - both cause UCL Kermit to terminate
+  gracefully and leave the remote Kermit (if still online)
+  connected to the unix shell.
+
+       An ERROR packet  -  this has the same effect as BYE.
+
+       After automatic mode, as after send or receive modes,
+  UCL Kermit terminates like any other unix program, leaving
+  the shell in control.
+
+
+
+
+
+
+
+
+[UCL Kermit]                - 6 -           [IN1792, Aug 1985]
+
+
+7.  Cancelling Kermit.
+
+       Any error packet received at any time, or any
+  substantial protocol error, will cause UCL Kermit to
+  terminate (fairly) gracefully.  Situations can, however,
+  arise where UCL Kermit has not received an error but the
+  local Kermit has failed or been inadvertently cancelled.
+  In these cases UCL Kermit will repeatedly time out, sending
+  a NAK (and a message in clear as well) each time it does
+  so.  In all cases except automatic-mode, the timeouts will
+  eventually reach a limit and UCL Kermit will quit, but it
+  is not convenient to have to wait this long.
+
+       If the local Kermit has a "send-error-packet"
+  facility, this may be used to cancel UCL Kermit.
+  Alternatively, using the local Kermit in connect-mode, the
+  sequence "ESC-C" will be recognized and cause UCL Kermit to
+  abort gracefully, restoring the communications line to
+  "cooked" before it does so.  The only time when this is not
+  effective is if UCL Kermit times out between the ESC and
+  the C.
+
+
+8.  Source Text and Machine Dependent Routines.
+
+       The source of UCL Kermit consists of a single large
+  file of code which it is believed will run unchanged under
+  any operating system (subject to the provisos below) plus a
+  short file containing about 10 procedures which are thought
+  to be potentially machine- or system- or compiler-
+  dependent.  These are fairly heavily commented, but the
+  following notes may be useful.
+
+       CR/LF processing is controlled by routines ascedit()
+  and ascout().  These are called whenever a CR or LF is
+  encountered in text-data to be sent or received
+  respectively.  (See above, section 5.)
+
+       Errors when reading/writing data from/to disk are
+  controlled by routine filerr(), whose function is to return
+  a sensible error-code (for logging in the debug file and
+  reporting to the local Kermit), and to distinguish errors
+  from normal end-of-file conditions.
+
+       Routine flushinput() is called whenever there is a
+  need to discard characters already received.
+
+       Functions rawtty() and cooktty() are called when it is
+  necessary to convert the mode of the terminal connection
+  from that normally used by the system to one in which all
+  characters are passed to/from the program without editing.
+  Function unbuffer() is called during initiation to ensure
+  that input/output on the communications line is not delayed
+  e.g.  by waiting for end-of-line characters.
+
+
+
+
+[UCL Kermit]                - 7 -           [IN1792, Aug 1985]
+
+
+       The whole of the main character-input routine,
+  nextin(), is included in the machine-dependent section,
+  together with the the timeout-setting routine, timoset().
+  These interact because there is a fundamental difference
+  between systems in which a timeout expiring will cause an
+  unsatisfied character-read to abort and one in which it
+  will not.  The "#ifdef" parameter "BSD42" controls which of
+  these situations is expected; but systems other than unix
+  may require yet other types of logic.  The timeout handling
+  is intentionally kept very simple so that there is no
+  reliance on unix-oriented features of C such as "longjump".
+
+
+9.  Operating System Assumptions.
+
+       In considering the portability of UCL Kermit, certain
+  assumptions were made about the environment in which it
+  would be running.  These certainly include:-
+
+    -- that the system stores its files (or at least
+  retreives them from storage) in ASCII with line-terminators
+  rather than record-delimiters or carriage-control
+  characters;
+
+    -- that the system supports users on teletype-like
+  terminals, and that these terminal-users can invoke
+  programs and access files without unreasonable restraint;
+
+    -- that the terminal-line can be set into such a mode
+  that it will pass a character-set comprising all printable
+  characters plus SOH (01) transparently to and from the
+  user's program.
+
+       It is believed that UCL Kermit can be ported to any
+  system which meets these (and possibly a few other
+  unrecognized) criteria, with only a small amount of
+  attention to the routines discussed in section 8.  The
+  author would be interested to receive reports from anyone
+  who carries out such porting.
+
+          ********************************************
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[UCL Kermit]                - 8 -           [IN1792, Aug 1985]
+
+
+              APPENDIX I  -  The Kermit System.
+
+
+            [This Appendix provides a general
+          description of Kermit file-transfer and the
+          way in which UCL Kermit fits into the
+          general picture.]
+
+
+1.  Kermit.
+
+       Kermit is a system designed at the University of
+  Columbia, New York to permit file transfer between
+  computers, both micro and mainframe, and access to a
+  substantial proportion of a mainframe's file-handling and
+  general organizing ability.  It requires no special
+  communications facilities beyone those normally provided
+  for direct "time-sharing" terminal access to a mainframe.
+  The U. of Columbia Kermit User Manual and Kermit Protocol
+  Manual provide the basic documentation of Kermit and
+  describe its facilities and a selection of its
+  implementations.  A more general discussion of the reasons
+  which led to the production of Kermit is contained in an
+  edited version of an article from Byte magazine.  All these
+  documents may be obtained from Columbia, but are also held
+  online at various centres (including, at the time of
+  writing, UCL).  See Appendix II.
+
+       Kermit does not make use of the sort of reliable
+  connections over computer communications which are provided
+  by the various ISO and other protocols.  It must be
+  considered to belong to an earlier generation of
+  communications activities.  Its great advantage is that
+  there are now in existence implementations for almost the
+  whole range of general-purpose computers, micro mini and
+  mainframe, all of which can be expected to interwork
+  without difficulty.  It therefore provides a practical
+  state-of-the-art solution to the problems of transferring
+  files between micro computers and mainframes, or between
+  micros of differing natures.  The files transferred may be
+  either text or binary, but must be of a sequential nature.
+
+       Kermit protocol includes packet-numbering and
+  checksums with error-recovery to ensure that any file
+  transfer which completes normally will actually have
+  transferred a correct copy of the file.  The only
+  exceptions to this general rule are:-
+
+    --  where 8-bit-image transfers are used, the 8th bit
+          may not be checked effectively.
+
+    --  where systems use different conventions for end-
+          of-line, CR/LF expansion must be activated (see
+          above section 5).
+
+
+
+
+[UCL Kermit]                - 9 -           [IN1792, Aug 1985]
+
+
+    --  where a binary file (8-bit data) is to be
+          transferred, but one end or other has not
+          implemented the neccessary option.
+
+       Kermit also provides a mainframe-to-mainframe
+  capability, enabling a terminal user on one mainframe to
+  acquire a link to another and conduct a substantial remote
+  session on it, including file-transfer between the two.  In
+  the U.S.A. this is apparently much used.  The U.K. Academic
+  Community has a well-developed system of access to remote
+  mainframes, using X25 protocols.  In this environment,
+  Kermit-based inter-mainframe working seems superfluous (and
+  likely to consume excessive resources).  It is for this
+  reason, among others, that UCL Kermit has been designed to
+  a specification which is restricted compared with that used
+  for some of the American implementations.
+
+       Kermit is, of course, only one of a family of
+  protocols designed to transfer files between micros and
+  mainframes, mostly using rather similar techniques.  Its
+  main advantages are widespread availability and the fact
+  that it is free.  Kermit is not "public domain" but
+  "copyright, freely available"; as such all Kermits must be
+  made available either without charge or at cost-of-
+  distribution.  This policy of Columbia's has resulted in
+  widespread distribution of Kermits as they have come into
+  existence.  See also Appendix II.
+
+
+2.  UCL Kermit.
+
+       UCL Kermit was produced at the Department of Computer
+  Science to provide at UCL a simple reliable Kermit to run
+  on all the Department's unix systems.  The immediate
+  objective was the transfer of text files to and from
+  various micros (BBCs, Sirius etc.), but the opportunity was
+  taken to write a version which would move easily to almost
+  any environment in which asynchronous ASCII terminals were
+  supported for command-input.  See sections 8 & 9 above.
+
+       Since there is in fact no real problem in letting
+  terminals at one UK academic site access the computers at
+  another (using JANET and X29), no facilities were provided
+  for routing through the mainframe to the outside world.  In
+  Kermit terminology, this is a "remote-only" Kermit.  This
+  policy also had the advantage of avoiding the areas in
+  which many facilities are provided in highly system-
+  specific (and hence non-portable) ways.
+
+       UCL Kermit used as a starting-point the C-coded
+  example version included in the Protocol Manual.  This was
+  designed to run under unix, and does not provide a
+  conversational interface to the user.  UCL Kermit therefore
+  also expects to get its full commands from an OS command-
+  line, entering either file-transfer or automatic mode as
+  soon as it has output its informative banners.
+
+
+[UCL Kermit]                - 10 -          [IN1792, Aug 1985]
+
+
+       While UCL Kermit was in gestation, Columbia released
+  their completely new C-Kermit, which provides almost all
+  possible Kermit facilities on a wide range of unix-like and
+  other systems.  C-Kermit is a much fuller implementation
+  than UCL Kermit, and could be preferred in many
+  circumstances.  The principal areas in which it is believed
+  that UCL Kermit scores are in ease of porting to new
+  systems and in its very full diagnostic tools (see above).
+  There may also be installations in which the system
+  managers would prefer not to provide the full Kermit
+  facilities to route through from one mainframe to another
+  over lines intended for terminal access.
+
+
+3.  Kermit Performance.
+
+       Few systematic measurements of Kermit performance have
+  been published.  The implementations for various computers
+  differ widely in techniques, languages and in the operating
+  systems for which they are designed.  It is known that some
+  of the implementations for "generic" micros, e.g. those
+  running under CP/M, are cpu-intensive and cannot drive fast
+  communications lines.  However, many of the more specific
+  Kermits are very efficient.
+
+       Since the data is transferred over a normal terminal-
+  line in asynchronous mode, the actual line speed (e.g. 960
+  char/sec for a 9600baud line) is an upper limit to the
+  possible character rate.  This has to be reduced for the
+  overhead of the envelope of each packet and for the
+  acknowledgments, but these are arranged to be quite small.
+  Kermit data (except in image-mode) is encoded by a
+  prefixing system to allow control-characters and 8-bit
+  characters to be passed over a medium with a restricted
+  character-set.  The degradation caused by this is
+  potentially large; but in practice the majority of text-
+  files incur quite low overheads (less than 10%) from this
+  encoding.  Against this can be set the compression effected
+  by using repeat-counts, which can often be greater than 20%
+  in files such as formatted program source.  The largest
+  delays are usually the inter-block times caused by
+  scheduling in the mainframe and by cross-network time on
+  long connections.  Disk operations can also cause
+  substantial delays on some micro operating systems.
+
+       In good conditions, e.g. with back-to-back micros,
+  Kermit will often achieve net transfer rates greater than
+  60% of the limit imposed by the line-speed (i.e. more than
+  600 char/sec at 9600baud).  Working between a micro and a
+  mainframe, provided that the latter is not so heavily
+  loaded as to show a degraded response time, rates greater
+  than 40% of line-speed have been observed.  These speeds
+  cannot be expected to compare with those achieved by
+  protocols such as NIFTP over X25 using fast (48Kbaud)
+  lines, but are adequate for the majority of micro-mainframe
+  and micro-micro transfers.
+
+
+[UCL Kermit]                - 11 -          [IN1792, Aug 1985]
+
+
+      It is perhaps more relevant to compare the transfer
+  speeds achieved by Kermit with those of other similar
+  micro-file-transfer systems.  Kermit is believed to achieve
+  higher net transfer rates than most of its competitors.
+
+       UCL Kermit has been designed so that it will give high
+  performance while making only modest demands on the cpu-
+  power of the system on which it is running.
+
+          ********************************************
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[UCL Kermit]                - 12 -          [IN1792, Aug 1985]
+
+
+            APPENDIX II  -  Kermit Availability.
+
+
+            [This Appendix provides information on
+          the sources from which copies of Kermit
+          programs and further information about
+          Kermit may be obtained by users in the UK.]
+
+
+1.  University of Columbia Distribution.
+
+       The Center for Computing Activities at the University
+  Of Columbia maintain a database containing copies of all
+  known Kermit implementations and documentation.  This is
+  held online (on a TOPS-20 machine), accessible over ARPANET
+  as CU20B, using "anonymous ftp" and arpaftp protocol (log
+  in as "anonymous").  UK users can obtain further
+  information about use of Arpanet from the Liason section at
+  UCL Dept. of Computer Science.  Columbia will also supply
+  copies of the bulk of this database on magnetic tape in
+  various formats at a distribution cost of (currently) 100
+  dollars.  Printed copies of the User and Protocol Manuals
+  are available at (currently) 10 dollars each.  Application
+  should be made to:-
+
+              Kermit Distribution
+              Center for Computing Activities
+              Columbia University
+              New York,   N.Y.   USA    10027
+
+       There are a number of other copies of this database
+  accessible in the USA, notably one held on a unix system
+  which can be reached via UUCP.  Details are given
+  intermittently in the Columbia Kermit Information-Digests.
+  These are edited versions of electronic mail exchanged
+  between Columbia and Kermit users, plus announcements of
+  general interest etc.  They are issued approximately weekly
+  by electronic mail to a mailing-list held at Columbia.
+  Various UK sites receive copies, including UCL and
+  Lancaster.  Copies of all back issues are held in the
+  Columbia database.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[UCL Kermit]                - 13 -          [IN1792, Aug 1985]
+
+
+2.  UK Distribution.
+
+       [This information is correct at time of writing but
+  obviously may change with time.]
+
+       The University of Lancaster obtain copies of the
+  Columbia distribution tapes several times a year and keep
+  the majority of the information available in a database on
+  their VAX computer.  They also update this from time to
+  time by direct arpaftp transfers from Columbia.  This
+  database is available to UK Academic Community over JANET
+  by NIFTP or Kermit.  Further information may be obtained
+  from:-
+
+              Alan Phillips
+              The Computer Centre
+              University of Lancaster
+              LANCASTER
+
+  or by sending JANET mail to "syskermit@lancs.vax1", or by
+  telephoning 0524-65201 Xtn 4881.
+
+       Lancaster are themselves the authors of the
+  implementaion of Kermit for the BBC micro.  They will
+  supply this on request either in a PROM or on floppy.  They
+  are also able to supply on floppy the version for the IBM-
+  PC family (and clones).  Kermit for Research Machines
+  micros (480Z and Nimbus) is obtainable from Tech. Support
+  at RML, Oxford.  Kermit for Apricots is available form
+  Ralph Mitchell at Brunel University.
+
+       Versions of Kermit for PRIME computers are available
+  from Teesside Polytechnic; and for GEC 4000-series from
+  Paul Bryant at the Rutherford-Appleton Laboratory.
+
+
+3.  Other Sources.
+
+       The Kermit fraternity is not highly organized; in
+  particular there is little contact in the UK between the
+  Academic and Commercial users.  It is known however that
+  both DECUS and the IBM-PC User Group hold and distribute
+  copies of Kermit for the machines in which they are
+  interested.
+
+       Kermit is widely in use in the UK Academic community.
+  There are obvious bootstrapping problems in transferring a
+  Kermit from the disks at Lancaster to a micro, but most of
+  the micro-Kermits are probably now in use somewhere in the
+  UK.  Any user wanting to obtain a copy on floopy of some
+  particular Kermit (not mentioned above) is advised to send
+  an appeal out to "info-kermit@ucl.cs".  The Kermit
+  fraternity is supposed to practice self- and mutual-help.
+
+
+
+
+
+[UCL Kermit]                - 14 -          [IN1792, Aug 1985]
+
+
+4.  Information Distribution.
+
+       At the time of writing, UCL are maintaining a mail
+  distribution list "info-kermit@ucl.cs".  Anyone who wishes
+  may send mail to this list, which contains names of some 50
+  UK Kermiteers.  Requests for inclusion on the list should
+  be addressed to "cjk@ucl.cs".  [This situation is likely to
+  change radically by early 1986.]
+
+       Both Lancaster and UCL hold copies of the Columbia
+  Information-Digests, which are accessible by NIFTP, Kermit
+  or normal login.  For information on accessing the UCL
+  copies, contact Liason at UCL Dept. Computer Science.  UCL
+  notify the info-kermit list as new issues are placed
+  online.
+
+       Lancaster issue "Mailshots" a few times a month to the
+  info-kermit distribution list giving information on current
+  activities.
+
+          ********************************************
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[UCL Kermit]                - 15 -          [IN1792, Aug 1985]
+
+
+         APPENDIX III  -  Running a Kermit Session.
+
+
+            [This Appendix assumes that Kermit is
+          being used between a micro and the UCL
+          systems.  Much of it is obviously
+          applicable to other Kermit connections.]
+
+
+       Running a Kermit session is complicated by the fact
+  that the user, sitting at the keyboard of a micro, is in
+  contact both with the micro-OS (e.g. CP/M) plus the Kermit
+  running on it (called the "local Kermit"), and also with
+  the mainframe-OS (unix) plus the mainframe Kermit (UCL
+  Kermit).  At any one time keyboard input will be going
+  either to the local system or to unix; screen output may
+  however contain information originating from both.  The
+  behaviour of UCL Kermit is discussed above, and it is
+  assumed that the user has some familiarity with unix.  The
+  behaviour of the local setup depends however on the actual
+  micro being used.
+
+       When obtaining the Kermit for the micro, you will have
+  acquired at least some instructions for running it.
+  Instructions for the most common micro-Kermits are also
+  included in the Columbia Kermit User Manual, a copy of
+  which is invaluable.  Most micro-Kermits, however, work in
+  much the same way.
+
+       At the risk of stating the obvious, Kermit will not
+  run between micro and mainframe until the hardware
+  communications link has been established.  If no other
+  software tools are available, put the micro-Kermit into
+  "connect" mode while doing this.  When you have managed to
+  log on to the mainframe and list a file by "type", "cat" or
+  etc., then you are ready to proceed with file-transfers.
+
+       The micro-Kermit will probably supply four modes of
+  working:
+
+    --  CONNECT, in which it behaves as a normal terminal;
+    --  SEND, in which it will transfer files to the
+          mainframe;
+    --  RECEIVE, in which it will accept incoming files
+          from the mainframe;
+    --  COMMAND, in which it will send commands to the
+          mainframe to send or get (receive) files
+          or do a number of other things.
+
+  It may be that COMMAND mode is in fact represented by a
+  number of commands such as GET etc.
+
+
+
+
+
+
+
+[UCL Kermit]                - 16 -          [IN1792, Aug 1985]
+
+
+       CONNECT is used, working as a terminal, to log on to
+  the mainframe, do any necessary housekeeping and then start
+  the mainframe Kermit.  It is probably also needed at the
+  end of the session for logging out etc.  What sort of a
+  terminal the micro is emulating depends on the details of
+  the local Kermit.
+
+       SEND / RECEIVE  and  COMMAND  represent two different
+  ways of using Kermit, which will be described separately.
+  UCL Kermit supports both; not all Kermits support COMMAND.
+  (COMMAND is often referred to as "Send Server Command"
+  mode, because the local Kermit is in fact sending
+  specially-formatted commands to the mainframe Kermit,
+  expecting it to be in "Server" mode.  UCL Kermit's
+  "automatic" mode corresponds to this.)
+
+       To use SEND, you must first (while in CONNECT) start
+  UCL Kermit to receive files by a command-line such as:-
+
+                  kermit  r7
+
+  After UCL Kermit's initial banners have been received, you
+  must escape out of CONNECT (see local Kermit instructions)
+  and issue a SEND command to the local Kermit.  This will
+  probably prompt you for a list of files to be sent.  When
+  this has been entered, the two Kermits should transfer the
+  files without more ado.  Your micro-Kermit will give you
+  some information as to how the transfer is progressing; the
+  amount depends very much on which particular micro-Kermit
+  you are running.  At the end of the transfer, UCL Kermit
+  will terminate and leave the unix shell in control.  The
+  micro-Kermit will tell you that this has happenned.  You
+  should put it back into CONNECT and carry on working unix.
+
+       To use RECEIVE, you must first (while in CONNECT)
+  start UCL Kermit to send files by a command-line such as:-
+
+                  kermit  s7  foo data1 fudge*
+
+  After UCL Kermit's initial banners have been received, you
+  must escape out of CONNECT (see local Kermit instructions)
+  and issue a RECEIVE command to the local Kermit.  The two
+  Kermits should then proceed much as they did for SEND, but
+  with the file going in the opposite direction.  You end up
+  back with unix.
+
+       To use COMMAND (in whatever way the local Kermit
+  implements it), you must first (while in CONNECT) start up
+  UCL Kermit in automatic mode by a command-line such as:-
+
+                  kermit  a7
+
+  The initial banners will tell you to send commands.  Escape
+  back to your local Kermit and follow its instructions for
+  working with server Kermits.  In this mode you can do a
+  succession of SENDs or GETs; UCL Kermit simply waits for
+  the next command.  To get back to unix you have to use the
+
+[UCL Kermit]                - 17 -          [IN1792, Aug 1985]
+
+
+  BYE or LOGOUT or FINISH command of the local Kermit (or go
+  into CONNECT and send ESC-C).  Note that UCL Kermit does
+  not implement the esoteric commands such as DIR and FINGER;
+  to list directories or see who's online you must get back
+  to unix.
+
+       You are most likely to be transferring a text-file.
+  if this is the case, it is often essential that CR/LF
+  expansion is active (see above section 5).  Therefore make
+  sure that one or other of the two Kermits is firmly set to
+  transfer 7-bit data.  If both ends are set to deal with
+  8th-bit-prefixed (binary) data, then CR/LF expansion will
+  get switched off.  UCL Kermit's default is 8th-bit-prefixed
+  (see section 2 above).  See the instructions of the local
+  Kermit for its default and settings.
+
+       Unfortunately, as with all communications, lots can go
+  wrong.  Discussing this is beyond the scope of this Note.
+  However, a sensible connection to unix (to let you start
+  again) should always be possible by escaping back into
+  CONNECT on the micro and sending ESC-C to UCL Kermit.
+
+          ********************************************

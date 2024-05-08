@@ -1,0 +1,4 @@
+The cuclx?.c files are machine-dependent code to support the machine-
+independent code in cuclker.c.  The character after the x indicates which
+system is being supported -- 'b' means Berkeley Unix (2.x, 4.x), 5 means
+ATT System V.
